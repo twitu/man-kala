@@ -165,25 +165,31 @@ class LocalMaximaPlayer:
 
 
 class MinimaxPlayer:
-    def __init__(self) -> None:
+    def __init__(self, max_depth = 5) -> None:
         # minimax is designed for only two players
         assert PLAYER_COUNT == 2
         self.name = "MinimaxPlayer"
+        self.max_depth = max_depth
 
     def play_turn(self, sim: GameSimulator) -> int:
         my_index = sim.turn
         opp_index = (sim.turn + 1) % 2
 
-        def minimax(board: GameBoard, score: Tuple[int, int], depth: int, max_depth: int = 10) -> int:
+        # Minimax for a given board state and depth returns the maximum points
+        # by which I am leading. If depth is even it is my turn and I want to
+        # maximize my lead. If depth is odd then it is the opponent's turn
+        # and they want to minimize my lead.
+        def minimax(board: GameBoard, score: Tuple[int, int], depth: int) -> int:
             # If game reaches end state
             # Return points lead
-            if board.over() or depth >= max_depth:
+            if board.over() or depth >= self.max_depth:
                 (me, opp) = score
-                return opp - me
+                return me - opp
             else:
                 scores = []
                 (me, opp) = score
                 my_turn = depth % 2 == 0
+                # My turn play a tile and add to my score
                 if my_turn:
                     valid_tiles = board.valid_moves(my_index)
 
@@ -197,6 +203,7 @@ class MinimaxPlayer:
                         scores.append(minimax(board_copy, new_score, depth + 1))
 
                     return max(scores)
+                # Opponent's turn plays a tile and adds to their score
                 else:
                     valid_tiles = board.valid_moves(opp_index)
 
@@ -206,7 +213,7 @@ class MinimaxPlayer:
 
                     for tile in valid_tiles:
                         board_copy = deepcopy(board)
-                        new_score = (me + board_copy.play_turn(opp_index, tile), opp)
+                        new_score = (me, opp + board_copy.play_turn(opp_index, tile))
                         scores.append(minimax(board_copy, new_score, depth + 1))
 
                     return min(scores)
@@ -219,7 +226,7 @@ class MinimaxPlayer:
             scores.append((minimax(board_copy, (score, 0), 1), tile))
 
         if scores:
-            (_, play_tile) = min(scores)
+            (_, play_tile) = max(scores)
             return play_tile
         else:
             return 0
@@ -228,7 +235,7 @@ class MinimaxPlayer:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.NOTSET, format='%(message)s')
     p1 = RandomPlayer(23)
-    p2 = MinimaxPlayer()
+    p2 = MinimaxPlayer(6)
     sim = GameSimulator([p1, p2])
     logging.info(
         f"{PLAYER_COUNT} players with {PER_PLAYER_TILE} tiles each and {TILE_START_COUNT} starting beads per tile\n"
