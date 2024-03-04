@@ -1,9 +1,11 @@
-from typing import Tuple
 import numpy as np
 import random
+import logging
+
+from typing import Tuple
 from copy import deepcopy
 
-TILE_START_COUNT = 3
+TILE_START_COUNT = 1
 PLAYER_COUNT = 2
 PER_PLAYER_TILE = 6
 PLAYER_HOME_INDEX = PER_PLAYER_TILE // 2
@@ -92,25 +94,35 @@ class GameSimulator:
         str_builder += f"\n{self.board}"
         return str_builder
 
-    def play(self):
+    def simulate_game(self):
         while not self.board.over():
-            player = self.players[self.turn]
-            play_tile_index = player.play_turn(self)
+            self.play_next_turn()
 
-            print(self)
-            print(f"{self.players[self.turn].name} playing {play_tile_index}\n")
+        logging.info(self)
 
-            score = self.board.play_turn(self.turn, play_tile_index)
-            self.score[self.turn] += score
+    def play_next_turn(self):
+        player = self.players[self.turn]
+        play_tile_index = player.play_turn(self)
 
-            self.turn = (self.turn + 1) % PLAYER_COUNT
+        logging.info(self)
+        logging.info(f"{self.players[self.turn].name} playing {play_tile_index}\n")
 
-        print(self)
+        self.play_tile(play_tile_index)
+
+    # Play given tile index for current turn
+    # Return player's index and new score
+    def play_tile(self, play_tile_index: int) -> Tuple[int, int]:
+        score = self.board.play_turn(self.turn, play_tile_index)
+        self.score[self.turn] += score
+        result = (self.turn, self.score[self.turn])
+        self.turn = (self.turn + 1) % PLAYER_COUNT
+        return result
+
 
 class RandomPlayer:
     def __init__(self, rand_seed) -> None:
         self.name = "RandomPlayer"
-        random.seed(rand_seed)
+        self.gen = random.Random(rand_seed)
 
     def play_turn(self, sim: GameSimulator) -> int:
         index = sim.turn * PER_PLAYER_TILE
@@ -122,7 +134,7 @@ class RandomPlayer:
             if beads > 0
         ]
         if choices:
-            return random.choice(choices)
+            return self.gen.choice(choices)
         else:
             return 0
 
@@ -148,10 +160,11 @@ class LocalMaximaPlayer:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     p1 = RandomPlayer(23)
     p2 = LocalMaximaPlayer()
     sim = GameSimulator([p1, p2])
-    print(
-        f"{PLAYER_COUNT} players with {PER_PLAYER_TILE} tiles and {TILE_START_COUNT} starting beads per tile\n"
+    logging.info(
+        f"{PLAYER_COUNT} players with {PER_PLAYER_TILE} tiles each and {TILE_START_COUNT} starting beads per tile\n"
     )
-    sim.play()
+    sim.simulate_game()
