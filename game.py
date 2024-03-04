@@ -91,6 +91,7 @@ class GameSimulator:
         self.board = GameBoard()
         self.score = [0] * len(players)
         self.turn = 0
+        self.tiles_played = [[] for _ in range(PLAYER_COUNT)]
 
     def __str__(self) -> str:
         str_builder = ""
@@ -107,6 +108,9 @@ class GameSimulator:
         while not self.board.over():
             self.play_next_turn()
 
+        for i in range(PLAYER_COUNT):
+            logging.info(f"Player {self.players[i].name} played: {self.tiles_played[i]}")
+
     def play_next_turn(self):
         player = self.players[self.turn]
         play_tile_index = player.play_turn(self)
@@ -120,12 +124,24 @@ class GameSimulator:
     # Play given tile index for current turn
     # Return player's index and new score
     def play_tile(self, play_tile_index: int) -> Tuple[int, int]:
+        self.tiles_played[self.turn].append(play_tile_index)
         score = self.board.play_turn(self.turn, play_tile_index)
         self.score[self.turn] += score
         result = (self.turn, self.score[self.turn])
         self.turn = (self.turn + 1) % PLAYER_COUNT
         return result
 
+class InteractivePlayer:
+    def __init__(self) -> None:
+        self.name = "InteractivePlayer"
+
+    def play_turn(self, _sim: GameSimulator) -> int:
+        while True:
+            tile = input(f"Enter a value between 0 and {PER_PLAYER_TILE}: ")
+            try:
+                return int(tile)
+            except Exception as error:
+                logging.error(f"Error {error}")
 
 class RandomPlayer:
     def __init__(self, rand_seed) -> None:
@@ -268,8 +284,8 @@ class MinimaxPlayer:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.NOTSET, format="%(message)s")
-    p1 = RandomPlayer(23)
-    p2 = MinimaxPlayer(6)
+    p1 = InteractivePlayer()
+    p2 = MinimaxPlayer(7)
     sim = GameSimulator([p1, p2])
     logging.info(
         f"{PLAYER_COUNT} players with {PER_PLAYER_TILE} tiles each and {TILE_START_COUNT} starting beads per tile\n"
