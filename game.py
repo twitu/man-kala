@@ -58,11 +58,14 @@ class GameBoard:
             return player_score
         else:
             raise Exception(f"Player {player_index} cannot start at {start_tile_index}")
-            
+
     def valid_moves(self, player_index) -> list[int]:
         offset = player_index * PER_PLAYER_TILE
-        return [tile - offset for tile in range(offset, offset + PER_PLAYER_TILE) if self.board[tile] > 0]
-
+        return [
+            tile - offset
+            for tile in range(offset, offset + PER_PLAYER_TILE)
+            if self.board[tile] > 0
+        ]
 
     def __str__(self) -> str:
         str_builder = ""
@@ -165,7 +168,7 @@ class LocalMaximaPlayer:
 
 
 class MinimaxPlayer:
-    def __init__(self, max_depth = 5) -> None:
+    def __init__(self, max_depth=5) -> None:
         # minimax is designed for only two players
         assert PLAYER_COUNT == 2
         self.name = "MinimaxPlayer"
@@ -179,51 +182,82 @@ class MinimaxPlayer:
         # by which I am leading. If depth is even it is my turn and I want to
         # maximize my lead. If depth is odd then it is the opponent's turn
         # and they want to minimize my lead.
-        def minimax(board: GameBoard, score: Tuple[int, int], depth: int) -> int:
+        def minimax(
+            board: GameBoard,
+            score_board: Tuple[int, int],
+            depth: int,
+            min_score: int,
+            max_score: int,
+        ) -> int:
             # If game reaches end state
             # Return points lead
             if board.over() or depth >= self.max_depth:
-                (me, opp) = score
+                (me, opp) = score_board
                 return me - opp
             else:
-                scores = []
-                (me, opp) = score
+                (me, opp) = score_board
                 my_turn = depth % 2 == 0
                 # My turn play a tile and add to my score
                 if my_turn:
                     valid_tiles = board.valid_moves(my_index)
+                    score = min_score
 
                     # if no valid tiles skip to opponents move
                     if not valid_tiles:
-                        return minimax(board, score, depth + 1)
+                        return minimax(
+                            board, score_board, depth + 1, min_score, max_score
+                        )
 
                     for tile in valid_tiles:
                         board_copy = deepcopy(board)
-                        new_score = (me + board_copy.play_turn(my_index, tile), opp)
-                        scores.append(minimax(board_copy, new_score, depth + 1))
+                        new_score_board = (
+                            me + board_copy.play_turn(my_index, tile),
+                            opp,
+                        )
+                        new_score = minimax(
+                            board_copy, new_score_board, depth + 1, score, max_score
+                        )
 
-                    return max(scores)
-                # Opponent's turn plays a tile and adds to their score
+                        if new_score > max_score:
+                            return max_score
+                        elif new_score > score:
+                            score = new_score
+
+                    return score
                 else:
                     valid_tiles = board.valid_moves(opp_index)
+                    score = max_score
 
                     # if no valid tiles skip to opponents move
                     if not valid_tiles:
-                        return minimax(board, score, depth + 1)
+                        return minimax(
+                            board, score_board, depth + 1, min_score, max_score
+                        )
 
                     for tile in valid_tiles:
                         board_copy = deepcopy(board)
-                        new_score = (me, opp + board_copy.play_turn(opp_index, tile))
-                        scores.append(minimax(board_copy, new_score, depth + 1))
+                        new_score_board = (
+                            me,
+                            opp + board_copy.play_turn(opp_index, tile),
+                        )
+                        new_score = minimax(
+                            board_copy, new_score_board, depth + 1, min_score, score
+                        )
 
-                    return min(scores)
+                        if new_score < min_score:
+                            return min_score
+                        elif new_score < score:
+                            score = new_score
+
+                    return score
 
         valid_tiles = sim.board.valid_moves(my_index)
         scores = []
+        max_score = PER_PLAYER_TILE * TILE_START_COUNT * PLAYER_COUNT
         for tile in valid_tiles:
             board_copy = deepcopy(sim.board)
             score = board_copy.play_turn(my_index, tile)
-            scores.append((minimax(board_copy, (score, 0), 1), tile))
+            scores.append((minimax(board_copy, (score, 0), 1, -max_score, max_score), tile))
 
         if scores:
             (_, play_tile) = max(scores)
@@ -233,7 +267,7 @@ class MinimaxPlayer:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.NOTSET, format='%(message)s')
+    logging.basicConfig(level=logging.NOTSET, format="%(message)s")
     p1 = RandomPlayer(23)
     p2 = MinimaxPlayer(6)
     sim = GameSimulator([p1, p2])
