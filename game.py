@@ -23,16 +23,21 @@ class GameBoard:
     # Player `index` plays a round starting at tile index `start_tile_index` relative to them
     # Returns the points earned by the player
     def play_turn(self, player_index, start_tile_index) -> int:
+        logging.debug(f"Playing {start_tile_index} for Player {player_index}")
         if 0 <= start_tile_index <= PER_PLAYER_TILE:
             offset = player_index * PER_PLAYER_TILE
             start_tile_index += offset
             player_home_index = PLAYER_HOME_INDEX + offset
             player_score = 0
+            logging.debug(f"Playing absolute {start_tile_index} for Player {player_index}")
+            logging.debug(f"{self}")
 
             while self.board[start_tile_index] != 0:
                 beads = self.board[start_tile_index]
                 self.board[start_tile_index] = 0
                 cur_index = start_tile_index
+                logging.debug(f"beads: {beads}, cur_index: {cur_index}, score: {player_score}")
+                logging.debug(f"{self}")
 
                 while beads > 0:
                     cur_index = (cur_index + 1) % BOARD_LENGTH
@@ -42,11 +47,18 @@ class GameBoard:
                     if cur_index == player_home_index and cur_index != start_tile_index:
                         player_score += 1
                         beads -= 1
+                        if beads == 0:
+                            logging.debug(f"Final score: {player_score}")
+                            logging.debug(f"{self}")
+                            return player_score
 
                     # add bead to tile
                     if beads > 0:
                         self.board[cur_index] += 1
                         beads -= 1
+
+                    logging.debug(f"beads: {beads}, cur_index: {cur_index}, score: {player_score}")
+                    logging.debug(f"{self}")
 
                 # if no beads in hand and current tile has more than 1 bead
                 # pick up the beads and continue cycle
@@ -55,6 +67,8 @@ class GameBoard:
                 else:
                     break
 
+            logging.debug(f"Final score: {player_score}")
+            logging.debug(f"{self}")
             return player_score
         else:
             raise Exception(f"Player {player_index} cannot start at {start_tile_index}")
@@ -130,6 +144,18 @@ class GameSimulator:
         result = (self.turn, self.score[self.turn])
         self.turn = (self.turn + 1) % PLAYER_COUNT
         return result
+
+
+class ReplayPlayer:
+    def __init__(self, played_tiles: list[int]):
+        self.played_tiles = played_tiles
+        self.current_turn = 0
+        self.name = "ReplayPlayer"
+
+    def play_turn(self, _sim: GameSimulator) -> int:
+        play_tile = self.played_tiles[self.current_turn]
+        self.current_turn += 1
+        return play_tile
 
 class InteractivePlayer:
     def __init__(self) -> None:
@@ -283,7 +309,7 @@ class MinimaxPlayer:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.NOTSET, format="%(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     p1 = InteractivePlayer()
     p2 = MinimaxPlayer(7)
     sim = GameSimulator([p1, p2])
