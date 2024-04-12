@@ -10,6 +10,12 @@ PLAYER_COUNT = 2
 PER_PLAYER_TILE = 6
 PLAYER_HOME_INDEX = PER_PLAYER_TILE // 2
 BOARD_LENGTH = PER_PLAYER_TILE * PLAYER_COUNT
+FIRST_PLAYER_AGENT = True
+RANDOM_SEED = 23
+
+type OBSERVATION = tuple[
+    int, int, int, int, int, int, int, int, int, int, int, int, int, int
+]
 
 
 class GameBoard:
@@ -29,14 +35,18 @@ class GameBoard:
             start_tile_index += offset
             player_home_index = PLAYER_HOME_INDEX + offset
             player_score = 0
-            logging.debug(f"Playing absolute {start_tile_index} for Player {player_index}")
+            logging.debug(
+                f"Playing absolute {start_tile_index} for Player {player_index}"
+            )
             logging.debug(f"{self}")
 
             while self.board[start_tile_index] != 0:
                 beads = self.board[start_tile_index]
                 self.board[start_tile_index] = 0
                 cur_index = start_tile_index
-                logging.debug(f"beads: {beads}, cur_index: {cur_index}, score: {player_score}")
+                logging.debug(
+                    f"beads: {beads}, cur_index: {cur_index}, score: {player_score}"
+                )
                 logging.debug(f"{self}")
 
                 while beads > 0:
@@ -57,7 +67,9 @@ class GameBoard:
                         self.board[cur_index] += 1
                         beads -= 1
 
-                    logging.debug(f"beads: {beads}, cur_index: {cur_index}, score: {player_score}")
+                    logging.debug(
+                        f"beads: {beads}, cur_index: {cur_index}, score: {player_score}"
+                    )
                     logging.debug(f"{self}")
 
                 # if no beads in hand and current tile has more than 1 bead
@@ -99,12 +111,15 @@ class GameBoard:
 
 
 class GameSimulator:
-    def __init__(self, players) -> None:
+    def __init__(
+        self,
+        players,
+    ) -> None:
         assert len(players) == PLAYER_COUNT
         self.players = players
         self.board = GameBoard()
         self.score = [0] * len(players)
-        self.turn = 0
+        self.turn = random.randint(0, PLAYER_COUNT - 1)
         self.tiles_played = [[] for _ in range(PLAYER_COUNT)]
 
     def __str__(self) -> str:
@@ -123,7 +138,9 @@ class GameSimulator:
             self.play_next_turn()
 
         for i in range(PLAYER_COUNT):
-            logging.info(f"Player {self.players[i].name} played: {self.tiles_played[i]}")
+            logging.info(
+                f"Player {self.players[i].name} played: {self.tiles_played[i]}"
+            )
 
     def play_next_turn(self):
         player = self.players[self.turn]
@@ -145,6 +162,47 @@ class GameSimulator:
         self.turn = (self.turn + 1) % PLAYER_COUNT
         return result
 
+    # Reset environment for open ai gym
+    def reset(self, *args, **kwargs):
+        self.board = GameBoard()
+        self.score = [0] * len(self.players)
+        self.turn = random.randint(0, PLAYER_COUNT - 1)
+        self.tiles_played = [[] for _ in range(PLAYER_COUNT)]
+
+        return self.observation, {}
+
+    # Record observation for open ai gym
+    # Returns the player scores and board state
+    @property
+    def observation(self) -> OBSERVATION:
+        obs = []
+        first_player_tiles = deepcopy(self.board.board[0:PER_PLAYER_TILE])
+        second_player_tiles = deepcopy(self.board.board[PER_PLAYER_TILE:])
+        if FIRST_PLAYER_AGENT:
+            obs.append(self.score[0])
+            obs.append(self.score[1])
+            obs.extend(first_player_tiles)
+            obs.extend(second_player_tiles)
+        else:
+            obs.append(self.score[1])
+            obs.append(self.score[0])
+            obs.extend(second_player_tiles)
+            obs.extend(first_player_tiles)
+        return tuple(obs)
+
+    @property
+    def action_space(self):
+        agent_index = 0 if FIRST_PLAYER_AGENT else 1
+        return self.board.valid_moves(agent_index)
+
+    def step(self, action: int):
+        self.tiles_played[self.turn].append(action)
+        score = self.board.play_turn(self.turn, action)
+        self.score[self.turn] += score
+        result = (self.turn, self.score[self.turn])
+        self.turn = (self.turn + 1) % PLAYER_COUNT
+        return self.observation, score, self.board.over(), False, {}
+
 
 class ReplayPlayer:
     def __init__(self, played_tiles: list[int]):
@@ -157,6 +215,7 @@ class ReplayPlayer:
         self.current_turn += 1
         return play_tile
 
+
 class InteractivePlayer:
     def __init__(self) -> None:
         self.name = "InteractivePlayer"
@@ -168,6 +227,7 @@ class InteractivePlayer:
                 return int(tile)
             except Exception as error:
                 logging.error(f"Error {error}")
+
 
 class RandomPlayer:
     def __init__(self, rand_seed) -> None:
@@ -299,7 +359,9 @@ class MinimaxPlayer:
         for tile in valid_tiles:
             board_copy = deepcopy(sim.board)
             score = board_copy.play_turn(my_index, tile)
-            scores.append((minimax(board_copy, (score, 0), 1, -max_score, max_score), tile))
+            scores.append(
+                (minimax(board_copy, (score, 0), 1, -max_score, max_score), tile)
+            )
 
         if scores:
             (_, play_tile) = max(scores)
