@@ -62,7 +62,14 @@ for episode in tqdm(range(n_episodes)):
         next_obs, reward, terminated, truncated, info = env.step(action)
 
         # simulate opponent turn
-        env.play_next_turn()
+        scores = env.play_next_turn()
+
+        # use score difference as reward for agent
+        # higher difference in better
+        reward = scores[0] - scores[1]
+        if not game.FIRST_PLAYER_AGENT:
+            reward = -reward
+
         next_obs = env.observation
 
         # update the agent

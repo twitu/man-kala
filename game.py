@@ -149,8 +149,9 @@ class GameSimulator:
         logging.info(self)
         logging.info(f"{self.players[self.turn].name} playing {play_tile_index}\n")
 
-        self.play_tile(play_tile_index)
+        result = self.play_tile(play_tile_index)
         logging.info(self)
+        return result
 
     # Play given tile index for current turn
     # Return player's index and new score
