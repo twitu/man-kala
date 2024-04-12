@@ -1,4 +1,4 @@
-seahorse
+seaborn
 gymnasium
 matplotlib
 numpy
