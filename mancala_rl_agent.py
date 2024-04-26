@@ -1,5 +1,7 @@
 from collections import deque, namedtuple
+import os
 import random, math
+import time
 from game import GameSimulator, PER_PLAYER_TILE, OBSERVATION_LEN
 
 
@@ -68,6 +70,26 @@ class RlMancalaPlayer:
         self.steps_done = 0
         self.env = env
         self.name = "Pr00Play3r"
+        self.full_name = "RlMancalaPlayer"
+
+    def save_model(self, path="model_weights.pth"):
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        path = f"{timestamp}_{path}"
+        torch.save(self.policy_net.state_dict(), path)
+
+    def load_model(self, path="model_weights.pth"):
+        
+        # If path is not a file, assume it's a directory and look for the latest model_weights file
+        if not os.path.isfile(path):
+            files = os.listdir(path)
+            files = [f for f in files if f.startswith('20') and f.endswith('.pth')]
+            files.sort()
+            if len(files) == 0:
+                raise ValueError("No saved model found")
+            path = os.path.join(path, files[-1])
+
+        self.policy_net.load_state_dict(torch.load(path))
+        self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def select_action(self, state):
         sample = random.random()
