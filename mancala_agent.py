@@ -46,7 +46,7 @@ class MancalaAgent:
 
         # if no valid move play 0th tile by default
         if len(action_space) == 0:
-            return 0
+            return -1
 
         # with probability epsilon return a random action to explore the environment
         if np.random.random() < self.epsilon:

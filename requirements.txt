@@ -3,3 +3,5 @@ gymnasium
 matplotlib
 numpy
 tqdm
+torch
+ipykernel

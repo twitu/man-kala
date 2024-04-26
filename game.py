@@ -16,6 +16,7 @@ RANDOM_SEED = 23
 type OBSERVATION = tuple[
     int, int, int, int, int, int, int, int, int, int, int, int, int, int
 ]
+OBSERVATION_LEN = 14
 
 
 class GameBoard:
