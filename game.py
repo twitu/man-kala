@@ -220,7 +220,8 @@ class ReplayPlayer:
 
 class InteractivePlayer:
     def __init__(self) -> None:
-        self.name = "InteractivePlayer"
+        self.full_name = "InteractivePlayer"
+        self.name = "Intrct"
 
     def play_turn(self, _sim: GameSimulator) -> int:
         while True:
@@ -233,7 +234,8 @@ class InteractivePlayer:
 
 class RandomPlayer:
     def __init__(self, rand_seed) -> None:
-        self.name = "RandomPlayer"
+        self.full_name = f"RandomPlayer({rand_seed})"
+        self.name = f"R({rand_seed})"
         self.gen = random.Random(rand_seed)
 
     def play_turn(self, sim: GameSimulator) -> int:
@@ -253,7 +255,8 @@ class RandomPlayer:
 
 class LocalMaximaPlayer:
     def __init__(self) -> None:
-        self.name = "LocalMaximaPlayer"
+        self.full_name = "LocalMaximaPlayer"
+        self.name = f"LoMX"
 
     def play_turn(self, sim: GameSimulator) -> int:
         scores = []
@@ -275,7 +278,8 @@ class MinimaxPlayer:
     def __init__(self, max_depth=5) -> None:
         # minimax is designed for only two players
         assert PLAYER_COUNT == 2
-        self.name = "MinimaxPlayer"
+        self.full_name = f"MinimaxPlayer({max_depth})"
+        self.name = f"MnMX({max_depth})"
         self.max_depth = max_depth
 
     def play_turn(self, sim: GameSimulator) -> int:
