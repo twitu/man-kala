@@ -14,7 +14,7 @@ BATCH_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 500
 TAU = 0.005
 LR = 1e-4
 
@@ -57,13 +57,13 @@ class DQN(nn.Module):
 
 
 class RlMancalaPlayer:
-    def __init__(self, env: GameSimulator):
+    def __init__(self, env: GameSimulator = None):
         # Get number of actions from gym action space
-        n_actions = PER_PLAYER_TILE
+        self.n_actions = PER_PLAYER_TILE
         # Get the number of state observations
-        n_observations = OBSERVATION_LEN
-        self.policy_net = DQN(n_observations, n_actions).to(device)
-        self.target_net = DQN(n_observations, n_actions).to(device)
+        self.n_observations = OBSERVATION_LEN
+        self.policy_net = DQN(self.n_observations, self.n_actions).to(device)
+        self.target_net = DQN(self.n_observations, self.n_actions).to(device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=LR, amsgrad=True)
         self.memory = ReplayMemory(10000)
@@ -74,22 +74,28 @@ class RlMancalaPlayer:
 
     def save_model(self, path="model_weights.pth"):
         timestamp = time.strftime("%Y%m%d%H%M%S")
-        path = f"{timestamp}_{path}"
-        torch.save(self.policy_net.state_dict(), path)
+        torch.save(self.policy_net.state_dict(), f"{timestamp}_policy_{path}")
+        torch.save(self.target_net.state_dict(), f"{timestamp}_target_{path}")
 
-    def load_model(self, path="model_weights.pth"):
+    def load_model(self, policy_path, target_path):
         
-        # If path is not a file, assume it's a directory and look for the latest model_weights file
-        if not os.path.isfile(path):
-            files = os.listdir(path)
-            files = [f for f in files if f.startswith('20') and f.endswith('.pth')]
-            files.sort()
-            if len(files) == 0:
-                raise ValueError("No saved model found")
-            path = os.path.join(path, files[-1])
+        # # If path is not a file, assume it's a directory and look for the latest model_weights file
+        # if not os.path.isfile(path):
+        #     files = os.listdir(path)
+        #     files = [f for f in files if f.startswith('20') and f.endswith('.pth')]
+        #     files.sort()
+        #     if len(files) == 0:
+        #         raise ValueError("No saved model found")
+        #     path = os.path.join(path, files[-1])
 
-        self.policy_net.load_state_dict(torch.load(path))
-        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.policy_net = DQN(self.n_observations, self.n_actions)
+        self.target_net = DQN(self.n_observations, self.n_actions)
+        self.policy_net.load_state_dict(torch.load(policy_path))
+        self.target_net.load_state_dict(torch.load(target_path))
+        self.policy_net.eval()
+        self.target_net.eval()
+        self.policy_net.to(device)
+        self.target_net.to(device)
 
     def select_action(self, state):
         sample = random.random()
@@ -98,7 +104,8 @@ class RlMancalaPlayer:
         )
         self.steps_done += 1
 
-        if len(self.env.action_space) == 0:
+        valid_moves = self.env.action_space
+        if len(valid_moves) == 0:
             return torch.tensor([[0]], device=device, dtype=torch.long)
 
         if sample > eps_threshold:
@@ -106,13 +113,35 @@ class RlMancalaPlayer:
                 # t.max(1) will return the largest column value of each row.
                 # second column on max result is index of where max element was
                 # found, so we pick action with the larger expected reward.
-                return self.policy_net(torch.tensor(state)).max(0).indices.view(1, 1)
+                index = self.policy_net(torch.tensor(state, device=device, dtype=torch.float)).max(0).indices.view(1, 1).long()
+                if not index in valid_moves:
+                    return torch.tensor(
+                        [[random.choice(valid_moves)]],
+                        device=device,
+                        dtype=torch.long,
+                    )
+                else:
+                    return index
         else:
             return torch.tensor(
                 [[random.choice(self.env.action_space)]],
                 device=device,
                 dtype=torch.long,
             )
+
+    def play_turn(self, sim: GameSimulator) -> int:
+        valid_moves = self.env.action_space
+        if len(valid_moves) == 0:
+            return 0
+        elif len(valid_moves) == 1:
+            return valid_moves[0]
+        else:
+            index = self.policy_net(torch.tensor(sim.observation, device=device, dtype=torch.float)).max(0).indices.view(1, 1).long()
+            # hack because network doesn't understand illegal moves
+            if not index in valid_moves:
+                return random.choice(valid_moves)
+            else:
+                return index
 
     def optimize_model(self):
         if len(self.memory) < BATCH_SIZE:
@@ -134,8 +163,8 @@ class RlMancalaPlayer:
             [s for s in batch.next_state if s is not None]
         )
 
-        print("optimize model....")
-        print(f"{batch.state}")
+        # print("optimize model....")
+        # print(f"{batch.state}")
         state_batch = torch.stack(batch.state, dim=1)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
